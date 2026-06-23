@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { useAuth } from './features/auth/useAuth';
 import { useRankings } from './features/ranking/useRankings';
+import { useNotifications } from './features/notifications/NotificationProvider';
+import NotificationBell from './components/notifications/NotificationBell';
+import NotificationToast from './components/notifications/NotificationToast';
 import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Report, INDIAN_CITIES } from './types';
 import { SEED_REPORTS } from './mockReports';
@@ -55,6 +58,32 @@ export default function App() {
 
   const { user, logout } = useAuth();
   const { citizenRankings, municipalRankings } = useRankings();
+  const { addNotification } = useNotifications();
+
+  // Milestone points / Badge levels milestone tracker
+  useEffect(() => {
+    if (!user) return;
+    const checkedPoints = [10, 50, 100, 300, 800, 1205];
+    checkedPoints.forEach(pt => {
+      const key = `milestone_${pt}_${user.uid}`;
+      if (user.points >= pt && !localStorage.getItem(key)) {
+        let badge = "Active Hero";
+        if (pt === 1205) badge = "MGD WARRIOR";
+        else if (pt === 800) badge = "SWACHH CO-LEAD";
+        else if (pt === 300) badge = "Ward Leader";
+        else if (pt === 100) badge = "Civic Guardian";
+        else if (pt === 50) badge = "Active Hero";
+        else if (pt === 10) badge = "Guest Explorer";
+        
+        const msg = pt >= 100 
+          ? `Incredible! Your active municipal participation has unlocked the rank of ${badge} with a karma score of ${user.points} points!`
+          : `Congratulations! Your citizen karma points increased to ${user.points} points! Unlocked the milestone achievement.`;
+          
+        addNotification(user.uid, "Leaderboard Achievement!", msg, "achievement");
+        localStorage.setItem(key, "notified");
+      }
+    });
+  }, [user?.points, user?.uid]);
 
   // If user is loading or null, ProtectedRoute holds render, but this keeps TS clean
   if (!user) {
@@ -133,6 +162,25 @@ export default function App() {
       } : null);
     }
 
+    // Trigger notification to the report creator
+    if (target.userId && target.userId !== mockUser.uid) {
+      if (updatedCount >= 3) {
+        addNotification(
+          target.userId,
+          "Issue Verified",
+          `Official Verification: '${target.title}' accumulated 3+ citizen endorsements of support. Escalation issued!`,
+          'achievement'
+        );
+      } else {
+        addNotification(
+          target.userId,
+          "Community Attestation",
+          `Another citizen of ${target.location.city} supported and attested your grievance: '${target.title}'.`,
+          'info'
+        );
+      }
+    }
+
     // Try Firestore update
     try {
       const docRef = doc(db, 'reports', reportId);
@@ -152,11 +200,67 @@ export default function App() {
     setActiveTab('dashboard'); // Route back to community dashboard
     setSelectedReportForReview(newReport); // Pop details directly to review!
 
+    // Trigger instant submission in-app notification
+    addNotification(
+      mockUser.uid,
+      "Issue Submitted",
+      `Your grievance complaint '${newReport.title}' has been successfully logged on the Ward Dashboard.`,
+      'success'
+    );
+
     // Save to Firestore
     try {
       await addDoc(collection(db, 'reports'), newReport);
     } catch (e) {
       console.error("Firestore persistence error saved to local engine layout:", e);
+    }
+  };
+
+  // Handle status resolution and transition updates (Resolution updated)
+  const handleUpdateStatus = async (reportId: string, newStatus: 'Reported' | 'In-Progress' | 'Resolved') => {
+    const reportIndex = reports.findIndex(r => r.id === reportId);
+    if (reportIndex === -1) return;
+
+    const target = reports[reportIndex];
+    const updatedReports = [...reports];
+    const now = new Date().toISOString();
+    
+    updatedReports[reportIndex] = {
+      ...target,
+      status: newStatus,
+      resolvedAt: newStatus === 'Resolved' ? now : null
+    };
+
+    setReports(updatedReports);
+
+    // Sync open details popup state
+    if (selectedReportForReview?.id === reportId) {
+      setSelectedReportForReview(prev => prev ? {
+        ...prev,
+        status: newStatus,
+        resolvedAt: newStatus === 'Resolved' ? now : null
+      } : null);
+    }
+
+    // Try Firestore update
+    try {
+      const docRef = doc(db, 'reports', reportId);
+      await updateDoc(docRef, {
+        status: newStatus,
+        resolvedAt: newStatus === 'Resolved' ? now : null
+      });
+
+      // Dispatch resolution updated alert to creator
+      if (target.userId) {
+        addNotification(
+          target.userId,
+          "Resolution Updated",
+          `Ward Escalation Team progressed your public report '${target.title}' to secondary state: '${newStatus}'.`,
+          newStatus === 'Resolved' ? 'success' : 'info'
+        );
+      }
+    } catch (e) {
+      console.warn("Local status cache resolved. Synced Firestore fallback.");
     }
   };
 
@@ -183,6 +287,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-warm-bg flex flex-col font-sans select-none antialiased">
+      <NotificationToast />
       
       {/* TRICOLORE ACCENT HEADER FLAG STRIP */}
       <div className="h-1.5 w-full flex">
@@ -275,6 +380,9 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* Notification Bell Feed Trigger */}
+            <NotificationBell />
 
             {/* Logout button */}
             <button
@@ -887,6 +995,46 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* ESCALATION STATUS ADHOC SIMULATOR */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 flex flex-wrap gap-4 items-center justify-between">
+                  <div>
+                    <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Escalation Resolution State</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`w-2 h-2 rounded-full ${
+                        selectedReportForReview.status === 'Resolved' ? 'bg-emerald-500 animate-pulse' :
+                        selectedReportForReview.status === 'In-Progress' ? 'bg-amber-500 animate-pulse' :
+                        'bg-slate-400'
+                      }`} />
+                      <span className={`text-[10px] font-mono font-black uppercase ${
+                        selectedReportForReview.status === 'Resolved' ? 'text-emerald-700' :
+                        selectedReportForReview.status === 'In-Progress' ? 'text-amber-700' :
+                        'text-slate-650'
+                      }`}>
+                        {selectedReportForReview.status}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1.5">
+                    {selectedReportForReview.status !== 'In-Progress' && selectedReportForReview.status !== 'Resolved' && (
+                      <button
+                        onClick={() => handleUpdateStatus(selectedReportForReview.id, 'In-Progress')}
+                        className="bg-navy hover:bg-slate-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+                      >
+                        Acknowledge (Work-In-Progress)
+                      </button>
+                    )}
+                    {selectedReportForReview.status !== 'Resolved' && (
+                      <button
+                        onClick={() => handleUpdateStatus(selectedReportForReview.id, 'Resolved')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+                      >
+                        Mark Resolved
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
             </div>

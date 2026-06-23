@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Sparkles, MapPin, Building2, AlertOctagon, HelpCircle, FileText, CheckCircle2, RotateCcw, Copy, AlertCircle, Eye, RefreshCw } from 'lucide-react';
 import { Report, CivicLocation, INDIAN_CITIES } from '../types';
+import { useNotifications } from '../features/notifications/NotificationProvider';
 
 interface ReportWizardProps {
   onSuccess: (newReport: Report) => void;
@@ -18,6 +19,8 @@ const MOCK_IMAGES = {
 };
 
 export default function ReportWizard({ onSuccess, userId, userEmail, userName }: ReportWizardProps) {
+  const { addNotification } = useNotifications();
+
   // Step tracker: 'upload' -> 'analysis' -> 'review'
   const [step, setStep] = useState<'upload' | 'analysis' | 'review'>('upload');
   
@@ -151,6 +154,9 @@ export default function ReportWizard({ onSuccess, userId, userEmail, userName }:
         setEditedComplaintHi(data.complaintDraftHindi || '');
         setEditedAdvice(data.civicAdvice || 'Maintain vigilance and caution around the area.');
         
+        // Trigger in-app notification
+        addNotification(userId, "AI Analysis Completed", `Vision diagnostics complete: ${data.category || 'Incidents'} grievance catalogued with ${data.severity || 'Moderate'} severity assessment.`, 'info');
+
         setTimeout(() => {
           setStep('review');
           setIsAiLoading(false);

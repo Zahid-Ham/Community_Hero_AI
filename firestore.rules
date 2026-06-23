@@ -11,5 +11,8 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false;
     }
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
   }
 }

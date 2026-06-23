@@ -61,6 +61,17 @@
         "userEmail": { "type": "string" },
         "userName": { "type": "string" }
       }
+    },
+    "notifications": {
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "description": "Notification level / type" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
