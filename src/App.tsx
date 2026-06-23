@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { useAuth } from './features/auth/useAuth';
+import { useRankings } from './features/ranking/useRankings';
 import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Report, INDIAN_CITIES } from './types';
 import { SEED_REPORTS } from './mockReports';
@@ -53,6 +54,7 @@ export default function App() {
   const [activeReviewLangTab, setActiveReviewLangTab] = useState<'en' | 'hi'>('en');
 
   const { user, logout } = useAuth();
+  const { citizenRankings, municipalRankings } = useRankings();
 
   // If user is loading or null, ProtectedRoute holds render, but this keeps TS clean
   if (!user) {
@@ -667,47 +669,28 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold font-mono text-saffron text-lg w-5">#1</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800">Bruhat Bengaluru Mahanagara Palike</h4>
-                        <span className="text-[10px] text-slate-400 font-medium">Bommanahalli Zone</span>
+                  {municipalRankings.map((mun, idx) => (
+                    <div key={mun.city} className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-bold font-mono text-lg w-5 ${
+                          idx === 0 ? 'text-saffron' : idx === 1 ? 'text-slate-400' : 'text-amber-700'
+                        }`}>#{idx + 1}</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">{mun.municipalBody}</h4>
+                          <span className="text-[10px] text-slate-400 font-medium">{mun.city} - {mun.state}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-emerald-600 font-mono">{mun.resolutionPercentage}% Resolved</span>
+                        <span className="block text-[9px] text-slate-450 font-medium mt-0.5">Avg {mun.averageResponseTime} hours response</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-600 font-mono">92% Resolved</span>
-                      <span className="block text-[9px] text-slate-450 font-medium mt-0.5">Avg 32 hours response</span>
+                  ))}
+                  {municipalRankings.length === 0 && (
+                    <div className="p-8 text-center text-xs text-slate-400 font-mono">
+                      Establishing Municipal Connections...
                     </div>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold font-mono text-slate-400 text-lg w-5">#2</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800">Brihanmumbai Municipal Corporation</h4>
-                        <span className="text-[10px] text-slate-400 font-medium">G/North Ward (Dadar)</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-600 font-mono">87% Resolved</span>
-                      <span className="block text-[9px] text-slate-450 font-medium mt-0.5">Avg 48 hours response</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold font-mono text-amber-700 text-lg w-5">#3</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800">Pune Municipal Corporation</h4>
-                        <span className="text-[10px] text-slate-400 font-medium">Koregaon Park Ward 5</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-600 font-mono">81% Resolved</span>
-                      <span className="block text-[9px] text-slate-450 font-medium mt-0.5">Avg 54 hours response</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -721,54 +704,50 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-navy text-white text-xs font-bold flex items-center justify-center">
-                        AR
+                  {citizenRankings.map((cit) => (
+                    <div 
+                      key={cit.uid} 
+                      className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                        cit.uid === user.uid 
+                          ? 'bg-navy/5 border-navy/20' 
+                          : 'bg-slate-50/50 border-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {cit.photoURL ? (
+                          <img 
+                            src={cit.photoURL} 
+                            alt={cit.name}
+                            referrerPolicy="no-referrer"
+                            className="w-8 h-8 rounded-full object-cover border border-slate-200" 
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-navy text-white text-xs font-bold flex items-center justify-center">
+                            {cit.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className={`text-xs font-sans ${cit.uid === user.uid ? 'font-extrabold text-navy' : 'font-bold text-slate-800'}`}>
+                            {cit.name} {cit.uid === user.uid && "(You)"}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 font-semibold font-mono">
+                            {cit.city} • {cit.reportsSubmitted} Filed • {cit.issuesResolved} Resolved
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800 font-sans">Ananya Rao</h4>
-                        <span className="text-[10px] text-slate-400 font-semibold font-mono">Mumbai • 19 Resolved</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-extrabold text-saffron font-mono">🏆 1,480pts</span>
-                      <span className="block text-[9px] text-emerald-600 font-extrabold uppercase mt-0.5 tracking-wider">MGD WARRIOR</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-saffron text-white text-xs font-bold flex items-center justify-center">
-                        KP
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800 font-sans">Kunal Patel</h4>
-                        <span className="text-[10px] text-slate-400 font-semibold font-mono">Pune • 11 Resolved</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-extrabold text-saffron font-mono">🏆 980pts</span>
-                      <span className="block text-[9px] text-emerald-600 font-extrabold uppercase mt-0.5 tracking-wider">SWATCH CO-LEAD</span>
-                    </div>
-                  </div>
-
-                  {/* Highlight current user in list */}
-                  <div className="p-3.5 bg-navy/5 rounded-xl border border-navy/20 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
-                        ZH
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-extrabold text-navy font-sans">Zahid Hamdule (You)</h4>
-                        <span className="text-[10px] text-slate-400 font-semibold font-mono">Bengaluru • 1 Registered</span>
+                      <div className="text-right">
+                        <span className="text-xs font-extrabold text-saffron font-mono">🏆 {cit.score.toLocaleString()}pts</span>
+                        <span className={`block text-[9px] font-extrabold uppercase mt-0.5 tracking-wider ${
+                          cit.uid === user.uid ? 'text-navy' : 'text-emerald-600'
+                        }`}>{cit.badge}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-extrabold text-saffron font-mono">🏆 125pts</span>
-                      <span className="block text-[9px] text-navy font-extrabold uppercase mt-0.5 tracking-wider">Active Hero</span>
+                  ))}
+                  {citizenRankings.length === 0 && (
+                    <div className="p-8 text-center text-xs text-slate-400 font-mono">
+                      Summoning Swachh Leaders...
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
