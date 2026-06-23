@@ -1,0 +1,11 @@
+{
+  "name": "Community Hero",
+  "description": "AI-Powered Civic Issue Reporting and Community Engagement Platform for India",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
