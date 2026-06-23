@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
+import { useAuth } from './features/auth/useAuth';
 import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Report, INDIAN_CITIES } from './types';
 import { SEED_REPORTS } from './mockReports';
@@ -51,13 +52,20 @@ export default function App() {
   const [selectedReportForReview, setSelectedReportForReview] = useState<Report | null>(null);
   const [activeReviewLangTab, setActiveReviewLangTab] = useState<'en' | 'hi'>('en');
 
-  // Local user profile state
+  const { user, logout } = useAuth();
+
+  // If user is loading or null, ProtectedRoute holds render, but this keeps TS clean
+  if (!user) {
+    return null;
+  }
+
+  // Map user profile variables to current layout state fields
   const mockUser = {
-    uid: "zahid-hamdule-12",
-    email: "zahidhamdule12@gmail.com",
-    displayName: "Zahid Hamdule",
-    karma: 125,
-    rank: "#4 Ward Warrior"
+    uid: user.uid,
+    email: user.email || "guest@communityhero.in",
+    displayName: user.name,
+    karma: user.points,
+    rank: user.isGuest ? "Guest Citizen" : (user.badges[0] || "#4 Ward Warrior")
   };
 
   // Sync firestore reports on load
@@ -251,11 +259,31 @@ export default function App() {
             </div>
             
             {/* Round Avatar Container */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-saffron to-green-t p-0.5">
-              <div className="w-full h-full rounded-[10px] bg-white flex items-center justify-center font-display font-extrabold text-xs text-navy">
-                ZH
-              </div>
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-tr from-saffron to-green-t p-0.5 relative group flex items-center justify-center shrink-0">
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt={user.name} 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover rounded-[10px]"
+                />
+              ) : (
+                <div className="w-full h-full rounded-[10px] bg-white flex items-center justify-center font-display font-extrabold text-xs text-navy">
+                  {user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ZH'}
+                </div>
+              )}
             </div>
+
+            {/* Logout button */}
+            <button
+              onClick={() => logout()}
+              title="Log Out Citizen Profile"
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
 
         </div>

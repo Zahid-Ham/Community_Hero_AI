@@ -52,3 +52,19 @@ export const INDIAN_CITIES: IndianCity[] = [
   { name: "Kolkata", state: "West Bengal", center: [22.5726, 88.3639], municipalBody: "Kolkata Municipal Corporation (KMC)" },
   { name: "Ahmedabad", state: "Gujarat", center: [23.0225, 72.5714], municipalBody: "Ahmedabad Municipal Corporation (AMC)" }
 ];
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  photoURL: string;
+  city: string;
+  points: number;
+  badges: string[];
+  reportsSubmitted: number;
+  reportsVerified: number;
+  createdAt: string;
+  lastLogin: string;
+  isGuest?: boolean;
+}
+
