@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { db } from './firebase';
 import { useAuth } from './features/auth/useAuth';
 import { useRankings } from './features/ranking/useRankings';
@@ -8,9 +8,24 @@ import NotificationToast from './components/notifications/NotificationToast';
 import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Report, INDIAN_CITIES } from './types';
 import { SEED_REPORTS } from './mockReports';
-import CivicMap from './components/CivicMap';
-import CivicBot from './components/CivicBot';
-import ReportWizard from './components/ReportWizard';
+import LandingPage from './components/landing/LandingPage';
+import { LoginView } from './components/auth/LoginView';
+
+// Lazy loaded modules
+const CivicMap = lazy(() => import('./components/CivicMap'));
+const CivicBot = lazy(() => import('./components/CivicBot'));
+const ReportWizard = lazy(() => import('./components/ReportWizard'));
+const MunicipalRankings = lazy(() => import('./components/MunicipalRankings'));
+
+const TabLoadingPlaceholder = () => (
+  <div 
+    className="w-full h-[400px] flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200 p-6 space-y-4 will-change-transform"
+    style={{ transform: 'translateZ(0)' }}
+  >
+    <div className="w-10 h-10 border-4 border-navy border-t-transparent rounded-full animate-spin"></div>
+    <p className="text-xs font-mono text-slate-400">Optimizing Viewport...</p>
+  </div>
+);
 
 // Icons
 import {
@@ -85,19 +100,8 @@ export default function App() {
     });
   }, [user?.points, user?.uid]);
 
-  // If user is loading or null, ProtectedRoute holds render, but this keeps TS clean
-  if (!user) {
-    return null;
-  }
-
-  // Map user profile variables to current layout state fields
-  const mockUser = {
-    uid: user.uid,
-    email: user.email || "guest@communityhero.in",
-    displayName: user.name,
-    karma: user.points,
-    rank: user.isGuest ? "Guest Citizen" : (user.badges[0] || "#4 Ward Warrior")
-  };
+  const [isViewingLanding, setIsViewingLanding] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
 
   // Sync firestore reports on load
   useEffect(() => {
@@ -129,8 +133,19 @@ export default function App() {
     fetchReports();
   }, []);
 
+  // Map user profile variables to current layout state fields with memoization
+  const mockUser = useMemo(() => {
+    return {
+      uid: user?.uid || "",
+      email: user?.email || "guest@communityhero.in",
+      displayName: user?.name || "Guest Citizen",
+      karma: user?.points || 0,
+      rank: user?.isGuest ? "Guest Citizen" : ((user?.badges && user?.badges[0]) || "#4 Ward Warrior")
+    };
+  }, [user]);
+
   // Handle support/upvote action
-  const handleUpvote = async (reportId: string) => {
+  const handleUpvote = useCallback(async (reportId: string) => {
     // Prevent double voting
     const reportIndex = reports.findIndex(r => r.id === reportId);
     if (reportIndex === -1) return;
@@ -191,10 +206,10 @@ export default function App() {
     } catch (e) {
       console.warn("Local upvote saved. Firestore synced fallback on write.");
     }
-  };
+  }, [reports, mockUser, selectedReportForReview, addNotification]);
 
   // Handle successful newly generated report
-  const handleAddNewReport = async (newReport: Report) => {
+  const handleAddNewReport = useCallback(async (newReport: Report) => {
     // Add locally immediately first
     setReports(prev => [newReport, ...prev]);
     setActiveTab('dashboard'); // Route back to community dashboard
@@ -214,10 +229,10 @@ export default function App() {
     } catch (e) {
       console.error("Firestore persistence error saved to local engine layout:", e);
     }
-  };
+  }, [mockUser.uid, addNotification]);
 
   // Handle status resolution and transition updates (Resolution updated)
-  const handleUpdateStatus = async (reportId: string, newStatus: 'Reported' | 'In-Progress' | 'Resolved') => {
+  const handleUpdateStatus = useCallback(async (reportId: string, newStatus: 'Reported' | 'In-Progress' | 'Resolved') => {
     const reportIndex = reports.findIndex(r => r.id === reportId);
     if (reportIndex === -1) return;
 
@@ -262,28 +277,83 @@ export default function App() {
     } catch (e) {
       console.warn("Local status cache resolved. Synced Firestore fallback.");
     }
-  };
+  }, [reports, selectedReportForReview, addNotification]);
 
-  // Compute stats metrics dynamically
-  const totalReportsCount = reports.length;
-  const resolvedCount = reports.filter(r => r.status === 'Resolved').length;
-  const criticalCount = reports.filter(r => r.severity === 'Critical' || r.severity === 'Severe').length;
-  const totalAttestations = reports.reduce((acc, curr) => acc + curr.upvotesCount, 0);
+  // Compute stats metrics dynamically using useMemo
+  const { totalReportsCount, resolvedCount, criticalCount, totalAttestations } = useMemo(() => {
+    return {
+      totalReportsCount: reports.length,
+      resolvedCount: reports.filter(r => r.status === 'Resolved').length,
+      criticalCount: reports.filter(r => r.severity === 'Critical' || r.severity === 'Severe').length,
+      totalAttestations: reports.reduce((acc, curr) => acc + curr.upvotesCount, 0)
+    };
+  }, [reports]);
 
-  // Filtered reports subset
-  const filteredReports = reports.filter(report => {
-    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          report.category.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCity = selectedCityFilter === 'All' || report.location.city.toLowerCase() === selectedCityFilter.toLowerCase();
-    
-    const matchesCategory = selectedCategoryFilter === 'All' || report.category === selectedCategoryFilter;
-    
-    const matchesStatus = selectedStatusFilter === 'All' || report.status === selectedStatusFilter;
+  // Filtered reports subset memoized
+  const filteredReports = useMemo(() => {
+    const lowerSearch = searchQuery.toLowerCase();
+    const lowerCityFilter = selectedCityFilter.toLowerCase();
+    return reports.filter(report => {
+      const matchesSearch = report.title.toLowerCase().includes(lowerSearch) ||
+                            report.description.toLowerCase().includes(lowerSearch) ||
+                            report.category.toLowerCase().includes(lowerSearch);
+      
+      const matchesCity = selectedCityFilter === 'All' || report.location.city.toLowerCase() === lowerCityFilter;
+      const matchesCategory = selectedCategoryFilter === 'All' || report.category === selectedCategoryFilter;
+      const matchesStatus = selectedStatusFilter === 'All' || report.status === selectedStatusFilter;
 
-    return matchesSearch && matchesCity && matchesCategory && matchesStatus;
-  });
+      return matchesSearch && matchesCity && matchesCategory && matchesStatus;
+    });
+  }, [reports, searchQuery, selectedCityFilter, selectedCategoryFilter, selectedStatusFilter]);
+
+  // If we are viewing the landing page, render it!
+  if (isViewingLanding) {
+    return (
+      <LandingPage
+        isAuthenticated={!!user}
+        onLogin={() => {
+          setShowLogin(true);
+          setIsViewingLanding(false);
+        }}
+        onEnterApp={(tab) => {
+          if (tab === 'wizard') {
+            setActiveTab('report');
+          } else if (tab === 'map') {
+            setActiveTab('map');
+          } else {
+            setActiveTab('dashboard');
+          }
+          if (user) {
+            setIsViewingLanding(false);
+          } else {
+            setShowLogin(true);
+            setIsViewingLanding(false);
+          }
+        }}
+      />
+    );
+  }
+
+  // If user is not logged in and showLogin is true, render LoginView
+  if (!user) {
+    return (
+      <div className="relative min-h-screen bg-[#F8FAFC]">
+        {/* Simple return to landing header */}
+        <div className="absolute top-4 left-4 z-50">
+          <button
+            onClick={() => {
+              setIsViewingLanding(true);
+              setShowLogin(false);
+            }}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl cursor-pointer shadow-sm"
+          >
+            ← Back to Landing
+          </button>
+        </div>
+        <LoginView />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-warm-bg flex flex-col font-sans select-none antialiased">
@@ -297,18 +367,22 @@ export default function App() {
       </div>
 
       {/* TOP BRAND NAV BAR */}
-      <header className="sticky top-0 z-[1000] bg-white border-b border-slate-100 shadow-sm backdrop-blur-md">
+      <header className="sticky top-0 z-[1000] bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
           
           {/* Logo & Platform Name */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-navy to-slate-800 text-white shadow-md">
+          <div 
+            onClick={() => setIsViewingLanding(true)}
+            className="flex items-center gap-3 cursor-pointer group"
+            title="Return to Public Portal"
+          >
+            <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-navy to-slate-800 text-white shadow-md transition-transform group-hover:scale-[1.05]">
               <span className="font-display font-extrabold text-lg text-saffron">C</span>
               <span className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-green-t"></span>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="font-display font-extrabold text-sm md:text-base text-slate-900 tracking-tight">Community Hero</h1>
+                <h1 className="font-display font-extrabold text-sm md:text-base text-slate-900 tracking-tight group-hover:text-[#1E3A8A] transition-colors">Community Hero</h1>
                 <span className="bg-saffron/10 text-saffron text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-widest uppercase">AI CIVIC</span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">Empowering Indian Municipal Accountability</p>
@@ -400,7 +474,7 @@ export default function App() {
       </header>
 
       {/* MOBILE FLOATING COMPACT ACTION BAR */}
-      <div className="lg:hidden fixed bottom-4 left-4 right-4 z-[999] bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl shadow-xl p-2 flex items-center justify-around">
+      <div className="lg:hidden fixed bottom-4 left-4 right-4 z-[999] bg-white border border-slate-200 rounded-2xl shadow-md p-2 flex items-center justify-around">
         <button
           onClick={() => { setActiveTab('dashboard'); setSelectedReportForReview(null); }}
           className={`flex flex-col items-center p-2 rounded-xl transition-all ${activeTab === 'dashboard' ? 'text-navy scale-105 font-bold' : 'text-slate-400 text-[10px]'}`}
@@ -655,7 +729,7 @@ export default function App() {
                             {report.imageUrl && (
                               <div className="h-28 w-full rounded-xl overflow-hidden relative">
                                 <img src={report.imageUrl} alt={report.title} className="w-full h-full object-cover" />
-                                <span className="absolute bottom-2 left-2 bg-black/65 backdrop-blur-xs text-[8px] text-white px-2 py-0.5 rounded uppercase font-bold tracking-wider">AI Verified View</span>
+                                <span className="absolute bottom-2 left-2 bg-black/75 text-[8px] text-white px-2 py-0.5 rounded uppercase font-bold tracking-wider">AI Verified View</span>
                               </div>
                             )}
 
@@ -712,19 +786,21 @@ export default function App() {
         {/* REPORT ISSUE TAB SEGMENT */}
         {activeTab === 'report' && (
           <div className="space-y-6">
-            <ReportWizard
-              onSuccess={handleAddNewReport}
-              userId={mockUser.uid}
-              userEmail={mockUser.email}
-              userName={mockUser.displayName}
-            />
+            <Suspense fallback={<TabLoadingPlaceholder />}>
+              <ReportWizard
+                onSuccess={handleAddNewReport}
+                userId={mockUser.uid}
+                userEmail={mockUser.email}
+                userName={mockUser.displayName}
+              />
+            </Suspense>
           </div>
         )}
 
         {/* MAP EXPLORER SEGMENT */}
         {activeTab === 'map' && (
           <div className="space-y-6 h-[550px] relative">
-            <div className="absolute top-4 right-4 z-[999] bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-md flex items-center gap-3">
+            <div className="absolute top-4 right-4 z-[999] bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
               <span className="text-xs font-bold text-slate-650">Select City Hub:</span>
               <select
                 value={selectedCityFilter === 'All' ? 'Bengaluru' : selectedCityFilter}
@@ -737,21 +813,25 @@ export default function App() {
               </select>
             </div>
             
-            <CivicMap
-              reports={reports}
-              selectedCity={selectedCityFilter === 'All' ? 'Bengaluru' : selectedCityFilter}
-              onSelectReport={(rep) => {
-                setSelectedReportForReview(rep);
-                setActiveReviewLangTab('en');
-              }}
-            />
+            <Suspense fallback={<TabLoadingPlaceholder />}>
+              <CivicMap
+                reports={reports}
+                selectedCity={selectedCityFilter === 'All' ? 'Bengaluru' : selectedCityFilter}
+                onSelectReport={(rep) => {
+                  setSelectedReportForReview(rep);
+                  setActiveReviewLangTab('en');
+                }}
+              />
+            </Suspense>
           </div>
         )}
 
         {/* CHATBOT ADVISOR SEGMENT */}
         {activeTab === 'chat' && (
           <div className="space-y-6 animate-fade-in">
-            <CivicBot />
+            <Suspense fallback={<TabLoadingPlaceholder />}>
+              <CivicBot />
+            </Suspense>
           </div>
         )}
 
@@ -760,7 +840,7 @@ export default function App() {
           <div className="space-y-6 max-w-5xl mx-auto">
             
             {/* Header statement bar */}
-            <div className="bg-gradient-to-r from-navy via-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xs">
+            <div className="bg-navy rounded-3xl p-6 text-white shadow-xs">
               <h2 className="font-display font-extrabold text-lg text-white">National Civic Transparency Scoreboard</h2>
               <p className="text-xs text-slate-350 leading-relaxed mt-0.5">Recognizing the top performing Municipal Corporations and active citizen vigilantes working together for a cleaner India.</p>
             </div>
@@ -768,39 +848,9 @@ export default function App() {
             <div className="grid md:grid-cols-2 gap-6">
               
               {/* Leaders board card 1: Municipalities */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-6 space-y-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="p-2 bg-saffron/10 text-saffron rounded-xl inline-flex">
-                    <Trophy className="w-5 h-5" />
-                  </span>
-                  <h3 className="font-display font-bold text-sm text-slate-800">Top Performing Municipal Corporations</h3>
-                </div>
-
-                <div className="space-y-3">
-                  {municipalRankings.map((mun, idx) => (
-                    <div key={mun.city} className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-bold font-mono text-lg w-5 ${
-                          idx === 0 ? 'text-saffron' : idx === 1 ? 'text-slate-400' : 'text-amber-700'
-                        }`}>#{idx + 1}</span>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-800">{mun.municipalBody}</h4>
-                          <span className="text-[10px] text-slate-400 font-medium">{mun.city} - {mun.state}</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-emerald-600 font-mono">{mun.resolutionPercentage}% Resolved</span>
-                        <span className="block text-[9px] text-slate-450 font-medium mt-0.5">Avg {mun.averageResponseTime} hours response</span>
-                      </div>
-                    </div>
-                  ))}
-                  {municipalRankings.length === 0 && (
-                    <div className="p-8 text-center text-xs text-slate-400 font-mono">
-                      Establishing Municipal Connections...
-                    </div>
-                  )}
-                </div>
-              </div>
+              <Suspense fallback={<TabLoadingPlaceholder />}>
+                <MunicipalRankings municipalRankings={municipalRankings} />
+              </Suspense>
 
               {/* Leaders board card 2: Active Citizens (Citizen Heroes) */}
               <div className="bg-white rounded-2xl border border-slate-200/80 p-6 space-y-4 shadow-sm">
@@ -868,7 +918,7 @@ export default function App() {
 
       {/* FULL GRANDE VIEW DIALOG MODAL PANEL (For reviewing any filed issue) */}
       {selectedReportForReview && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-900/50 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Modal Heading Header */}
@@ -905,7 +955,7 @@ export default function App() {
               {selectedReportForReview.imageUrl && (
                 <div className="w-full rounded-2xl h-56 md:h-64 overflow-hidden shadow-xs border border-slate-100 relative">
                   <img src={selectedReportForReview.imageUrl} alt={selectedReportForReview.title} className="w-full h-full object-cover" />
-                  <span className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-xs text-[9px] text-white font-bold tracking-wider px-3 py-1 rounded-lg uppercase">AI INFRASTRUCTURE DIAGNOSTIC SCAN VIEW</span>
+                  <span className="absolute bottom-3 left-3 bg-black/80 text-[9px] text-white font-bold tracking-wider px-3 py-1 rounded-lg uppercase">AI INFRASTRUCTURE DIAGNOSTIC SCAN VIEW</span>
                 </div>
               )}
 

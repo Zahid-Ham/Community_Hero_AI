@@ -113,7 +113,7 @@ export function LoginView() {
           
           <div className="relative z-10">
             {/* National Citizen Logo Flag Design */}
-            <div className="flex items-center gap-2 mb-8 bg-black/20 self-start py-1.5 px-3 rounded-full backdrop-blur-sm border border-white/10 w-fit">
+            <div className="flex items-center gap-2 mb-8 bg-black/30 self-start py-1.5 px-3 rounded-full border border-white/10 w-fit">
               <span className="flex h-2.5 w-2.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -133,7 +133,7 @@ export function LoginView() {
           </div>
 
           {/* Citizen Quotes Rotate widget */}
-          <div className="relative z-10 mt-12 bg-black/15 p-5 rounded-2xl border border-white/5 backdrop-blur-xs">
+          <div className="relative z-10 mt-12 bg-black/25 p-5 rounded-2xl border border-white/5">
             <p className="text-sm italic font-medium text-amber-100 leading-relaxed">
               "{quotes[1].text}"
             </p>

@@ -365,7 +365,7 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
       <div className="absolute top-4 left-4 z-[999] flex flex-col sm:flex-row gap-2 max-w-[92%]">
         
         {/* VIEW MODE SEGMENT SWITCHER */}
-        <div className="bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-md flex items-center gap-0.5 w-fit">
+        <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex items-center gap-0.5 w-fit">
           <button
             type="button"
             onClick={() => setViewMode('cluster')}
@@ -417,7 +417,7 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
 
           {/* DROPDOWN FILTERING DECK COMPONENT */}
           {showFilters && (
-            <div className="absolute top-12 left-0 w-80 bg-white/98 backdrop-blur-md rounded-2xl border border-slate-200/85 p-5 shadow-xl space-y-4 font-sans animate-fade-in">
+            <div className="absolute top-12 left-0 w-80 bg-white rounded-2xl border border-slate-200 p-5 shadow-md space-y-4 font-sans animate-fade-in">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wider">
                   <Filter className="w-3.5 h-3.5 text-amber-600" />
@@ -530,7 +530,7 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
       </div>
       
       {/* MAP HAZARDS COMPASS LEGEND PANEL */}
-      <div className="absolute bottom-4 left-4 z-[999] bg-white/95 backdrop-blur-md px-3.5 py-3 rounded-xl border border-slate-200/80 shadow-md max-w-xs font-sans">
+      <div className="absolute bottom-4 left-4 z-[999] bg-white px-3.5 py-3 rounded-xl border border-slate-200 shadow-sm max-w-xs font-sans">
         <div className="flex items-center gap-1.5 mb-2 border-b border-slate-100 pb-1">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
           <h5 className="text-[10px] uppercase tracking-wider font-extrabold text-navy">Priority Grid Legend</h5>
