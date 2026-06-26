@@ -77,14 +77,17 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
 
   // Helper: Severity color style definitions
   const getSeverityStyle = (severity: string) => {
-    switch (severity) {
-      case 'Critical':
+    const s = (severity || '').toUpperCase();
+    switch (s) {
+      case 'CRITICAL':
         return { bg: 'bg-rose-600', ring: 'ring-rose-200', text: 'text-rose-700', borderHex: '#E11D48' };
-      case 'Severe':
+      case 'SEVERE':
+      case 'HIGH':
         return { bg: 'bg-amber-500', ring: 'ring-amber-200', text: 'text-amber-700', borderHex: '#F59E0B' };
-      case 'Moderate':
+      case 'MODERATE':
+      case 'MEDIUM':
         return { bg: 'bg-yellow-400', ring: 'ring-yellow-100', text: 'text-yellow-750', borderHex: '#FACC15' };
-      case 'Low':
+      case 'LOW':
       default:
         return { bg: 'bg-emerald-500', ring: 'ring-emerald-200', text: 'text-emerald-750', borderHex: '#10B981' };
     }
@@ -112,9 +115,10 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
     const points = filteredReports.map(rep => {
       const containerPt = map.latLngToContainerPoint([rep.location.lat, rep.location.lng]);
       let weight = 1;
-      if (rep.severity === 'Critical') weight = 4.5;
-      else if (rep.severity === 'Severe') weight = 3.2;
-      else if (rep.severity === 'Moderate') weight = 2.0;
+      const s = (rep.severity || '').toUpperCase();
+      if (s === 'CRITICAL') weight = 4.5;
+      else if (s === 'SEVERE' || s === 'HIGH') weight = 3.2;
+      else if (s === 'MODERATE' || s === 'MEDIUM') weight = 2.0;
       return { x: containerPt.x, y: containerPt.y, weight, severity: rep.severity };
     });
 
@@ -127,9 +131,10 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
       const gradient = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radius);
 
       let color = 'rgba(16, 185, 129, '; // Green for Low
-      if (pt.severity === 'Critical') color = 'rgba(225, 29, 72, '; // Red
-      else if (pt.severity === 'Severe') color = 'rgba(245, 158, 11, '; // Orange
-      else if (pt.severity === 'Moderate') color = 'rgba(234, 179, 8, '; // Yellow
+      const s = (pt.severity || '').toUpperCase();
+      if (s === 'CRITICAL') color = 'rgba(225, 29, 72, '; // Red
+      else if (s === 'SEVERE' || s === 'HIGH') color = 'rgba(245, 158, 11, '; // Orange
+      else if (s === 'MODERATE' || s === 'MEDIUM') color = 'rgba(234, 179, 8, '; // Yellow
 
       gradient.addColorStop(0, `${color}0.50)`);
       gradient.addColorStop(0.35, `${color}0.25)`);
@@ -248,7 +253,7 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
     // Dynamic Solo Pin creator helper
     function createSoloPin(report: Report) {
       const style = getSeverityStyle(report.severity);
-      const isCritical = report.severity === 'Critical';
+      const isCritical = report.severity.toUpperCase() === 'CRITICAL';
 
       const icon = L.divIcon({
         className: 'custom-map-pin',
@@ -276,9 +281,9 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
     function createClusterMarker(coords: [number, number], reportsInCluster: Report[]) {
       // Determine highest severity dynamically inside the cluster
       let topSeverity = 'Low';
-      if (reportsInCluster.some(r => r.severity === 'Critical')) topSeverity = 'Critical';
-      else if (reportsInCluster.some(r => r.severity === 'Severe')) topSeverity = 'Severe';
-      else if (reportsInCluster.some(r => r.severity === 'Moderate')) topSeverity = 'Moderate';
+      if (reportsInCluster.some(r => r.severity.toUpperCase() === 'CRITICAL')) topSeverity = 'Critical';
+      else if (reportsInCluster.some(r => r.severity.toUpperCase() === 'SEVERE' || r.severity.toUpperCase() === 'HIGH')) topSeverity = 'Severe';
+      else if (reportsInCluster.some(r => r.severity.toUpperCase() === 'MODERATE' || r.severity.toUpperCase() === 'MEDIUM')) topSeverity = 'Moderate';
 
       const style = getSeverityStyle(topSeverity);
       const count = reportsInCluster.length;
@@ -327,9 +332,9 @@ export default function CivicMap({ reports, selectedCity, onSelectReport }: Civi
         <div class="p-3 max-w-[250px] font-sans">
           <div class="flex items-center gap-1.5 justify-between mb-1.5">
             <span class="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full ${
-              report.severity === 'Critical' ? 'bg-rose-100 text-rose-800' :
-              report.severity === 'Severe' ? 'bg-amber-100 text-amber-800' :
-              report.severity === 'Moderate' ? 'bg-yellow-105 text-yellow-850' : 'bg-emerald-100 text-emerald-800'
+              report.severity.toUpperCase() === 'CRITICAL' ? 'bg-rose-100 text-rose-800' :
+              (report.severity.toUpperCase() === 'SEVERE' || report.severity.toUpperCase() === 'HIGH') ? 'bg-amber-100 text-amber-800' :
+              (report.severity.toUpperCase() === 'MODERATE' || report.severity.toUpperCase() === 'MEDIUM') ? 'bg-yellow-105 text-yellow-850' : 'bg-emerald-100 text-emerald-800'
             }">${report.severity} Priority</span>
             <span class="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono leading-tight uppercase">${report.status}</span>
           </div>

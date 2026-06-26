@@ -284,7 +284,10 @@ export default function App() {
     return {
       totalReportsCount: reports.length,
       resolvedCount: reports.filter(r => r.status === 'Resolved').length,
-      criticalCount: reports.filter(r => r.severity === 'Critical' || r.severity === 'Severe').length,
+      criticalCount: reports.filter(r => {
+        const s = (r.severity || '').toUpperCase();
+        return s === 'CRITICAL' || s === 'SEVERE' || s === 'HIGH';
+      }).length,
       totalAttestations: reports.reduce((acc, curr) => acc + curr.upvotesCount, 0)
     };
   }, [reports]);
@@ -702,9 +705,9 @@ export default function App() {
                             {/* Card Top Badges */}
                             <div className="flex items-center justify-between">
                               <span className={`text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md ${
-                                report.severity === 'Critical' ? 'bg-rose-100 text-rose-800' :
-                                report.severity === 'Severe' ? 'bg-amber-100 text-amber-800' :
-                                report.severity === 'Moderate' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
+                                report.severity.toUpperCase() === 'CRITICAL' ? 'bg-rose-100 text-rose-800' :
+                                (report.severity.toUpperCase() === 'SEVERE' || report.severity.toUpperCase() === 'HIGH') ? 'bg-amber-100 text-amber-800' :
+                                (report.severity.toUpperCase() === 'MODERATE' || report.severity.toUpperCase() === 'MEDIUM') ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
                               }`}>{report.severity} Priority</span>
                               
                               <span className={`text-[9px] font-semibold tracking-wide px-2 py-0.5 rounded-md ${
@@ -925,8 +928,8 @@ export default function App() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                  selectedReportForReview.severity === 'Critical' ? 'bg-rose-100 text-rose-800' :
-                  selectedReportForReview.severity === 'Severe' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                  selectedReportForReview.severity.toUpperCase() === 'CRITICAL' ? 'bg-rose-100 text-rose-800' :
+                  (selectedReportForReview.severity.toUpperCase() === 'SEVERE' || selectedReportForReview.severity.toUpperCase() === 'HIGH') ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                 }`}>{selectedReportForReview.severity} Severity</span>
                 <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded font-mono font-bold leading-tight uppercase">{selectedReportForReview.status}</span>
               </div>
@@ -986,7 +989,7 @@ export default function App() {
                 </div>
                 <div className="text-right">
                   <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Escalated Resolution Time</span>
-                  <span className="text-xs font-extrabold text-emerald-700 font-mono">Within {selectedReportForReview.severity === 'Critical' ? '24 Hours' : '48-72 Hours'}</span>
+                  <span className="text-xs font-extrabold text-emerald-700 font-mono">Within {selectedReportForReview.severity.toUpperCase() === 'CRITICAL' ? '24 Hours' : '48-72 Hours'}</span>
                 </div>
               </div>
 
@@ -1042,6 +1045,130 @@ export default function App() {
                     <div>
                       <h5 className="text-xs font-bold text-emerald-800">Civic Duty Safety Advice</h5>
                       <p className="text-[11px] text-emerald-600 font-medium leading-relaxed mt-0.5">{selectedReportForReview.civicAdvice}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Detailed Predictive Risk Analysis */}
+                {selectedReportForReview.workflowState?.riskPrediction && (selectedReportForReview.workflowState.riskPrediction.futureRisk || (selectedReportForReview.workflowState.riskPrediction.possibleConsequences && selectedReportForReview.workflowState.riskPrediction.possibleConsequences.length > 0)) && (
+                  <div className="bg-rose-50/20 rounded-2xl border border-rose-100/60 p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-rose-100/40 pb-2">
+                      <span className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-rose-600 animate-pulse" />
+                        <span>Failure Cascade & Public Safety Risk Analysis</span>
+                      </span>
+                      {selectedReportForReview.workflowState.riskPrediction.urgencyLevel && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                          selectedReportForReview.workflowState.riskPrediction.urgencyLevel.toLowerCase() === 'critical' ? 'bg-red-100 text-red-800 border-red-200' :
+                          selectedReportForReview.workflowState.riskPrediction.urgencyLevel.toLowerCase() === 'high' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                          selectedReportForReview.workflowState.riskPrediction.urgencyLevel.toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                          'bg-slate-100 text-slate-800 border-slate-200'
+                        }`}>
+                          Urgency: {selectedReportForReview.workflowState.riskPrediction.urgencyLevel}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left Column: Predictions & Consequences */}
+                      <div className="space-y-3">
+                        {selectedReportForReview.workflowState.riskPrediction.futureRisk && (
+                          <div className="space-y-1">
+                            <h6 className="text-[10px] font-bold text-slate-700 uppercase tracking-wide font-mono">Future Risk Progression</h6>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                              {selectedReportForReview.workflowState.riskPrediction.futureRisk}
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedReportForReview.workflowState.riskPrediction.possibleConsequences && selectedReportForReview.workflowState.riskPrediction.possibleConsequences.length > 0 && (
+                          <div className="space-y-1">
+                            <h6 className="text-[10px] font-bold text-slate-700 uppercase tracking-wide font-mono">Possible Consequences</h6>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {selectedReportForReview.workflowState.riskPrediction.possibleConsequences.map((consequence: string, idx: number) => (
+                                <span key={idx} className="bg-rose-50 text-rose-700 font-bold px-2 py-1 rounded-lg text-[10px] border border-rose-100 flex items-center gap-1">
+                                  <span>⚠️</span>
+                                  <span>{consequence}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Column: Community Impact & Recommendations */}
+                      <div className="space-y-3">
+                        {selectedReportForReview.workflowState.riskPrediction.communityImpact && (
+                          <div className="space-y-1">
+                            <h6 className="text-[10px] font-bold text-slate-700 uppercase tracking-wide font-mono">Community Impact</h6>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                              {selectedReportForReview.workflowState.riskPrediction.communityImpact}
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedReportForReview.workflowState.riskPrediction.recommendations && selectedReportForReview.workflowState.riskPrediction.recommendations.length > 0 && (
+                          <div className="space-y-1">
+                            <h6 className="text-[10px] font-bold text-slate-700 uppercase tracking-wide font-mono">Safety Recommendations</h6>
+                            <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-slate-600 font-medium leading-relaxed">
+                              {selectedReportForReview.workflowState.riskPrediction.recommendations.map((rec: string, idx: number) => (
+                                <li key={idx}>{rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Citizen Summary Panel */}
+                {selectedReportForReview.citizenSummary && (
+                  <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/60 space-y-2 relative">
+                    <span className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span>Citizen Empowerment & Rights Summary</span>
+                    </span>
+                    <p className="text-xs text-amber-900 leading-relaxed font-medium whitespace-pre-line">
+                      {selectedReportForReview.citizenSummary}
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedReportForReview.citizenSummary || '');
+                        alert("Citizen empowerment summary successfully copied!");
+                      }}
+                      className="absolute top-4 right-4 bg-white border border-amber-200/60 hover:bg-amber-50 text-amber-800 px-3 py-1.5 rounded-xl font-bold text-[10px] shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Copy Summary</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* RTI Escalation Draft Panel */}
+                {selectedReportForReview.rtiEscalationDraft && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-indigo-600" />
+                      <span>Right to Information (RTI) Escalation Draft</span>
+                    </span>
+                    <div className="relative">
+                      <textarea
+                        readOnly
+                        rows={8}
+                        value={selectedReportForReview.rtiEscalationDraft}
+                        className="w-full border border-slate-200 px-5 py-4 rounded-2xl text-xs leading-relaxed font-mono bg-slate-50/50 text-slate-700 focus:outline-none whitespace-pre-line"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedReportForReview.rtiEscalationDraft || '');
+                          alert("RTI application draft successfully copied!");
+                        }}
+                        className="absolute top-4 right-4 bg-white/95 border border-slate-200 hover:bg-slate-50 text-indigo-700 px-3 py-1.5 rounded-xl font-bold text-[10px] shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Copy RTI Draft</span>
+                      </button>
                     </div>
                   </div>
                 )}

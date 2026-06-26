@@ -19,6 +19,8 @@ export interface Report {
   imageUrl?: string;
   complaintDraftEnglish: string;
   complaintDraftHindi: string;
+  rtiEscalationDraft?: string;
+  citizenSummary?: string;
   civicAdvice: string;
   upvotesCount: number;
   upvotesUsers: string[];
@@ -27,6 +29,9 @@ export interface Report {
   userEmail: string;
   userName: string;
   resolvedAt: string | null;
+  workflowId?: string;
+  workflowState?: any;
+  agentContext?: any;
 }
 
 export interface ChatMessage {

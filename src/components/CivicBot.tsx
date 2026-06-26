@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, MessageSquare, ArrowRight, ShieldAlert, BookOpen } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { ChatMessage } from '../types';
 
 export default function CivicBot() {
@@ -12,7 +13,7 @@ export default function CivicBot() {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messageContainerRef = useRef<HTMLDivElement>(null);
 
   const starterQuestions = [
     { text: "RTI filing procedure", prompt: "Could you walk me through the steps to draft and file a Right to Information (RTI) application for local municipal expenditure?" },
@@ -21,9 +22,14 @@ export default function CivicBot() {
     { text: "Pothole compensation rules", prompt: "Are there any High Court rulings or compensation guidelines for citizens affected by municipal pothole negligence?" }
   ];
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom of the message container on new messages
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messageContainerRef.current) {
+      messageContainerRef.current.scrollTo({
+        top: messageContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [messages, isLoading]);
 
   const handleSendMessage = async (msgText: string) => {
@@ -80,10 +86,10 @@ export default function CivicBot() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[600px] max-w-7xl mx-auto px-4 md:px-0">
+    <div className="flex flex-col lg:flex-row gap-6 lg:h-[600px] h-auto max-w-7xl mx-auto px-4 md:px-0">
       
       {/* Informative Side Panel */}
-      <div className="lg:w-1/3 flex flex-col gap-5">
+      <div className="lg:w-1/3 lg:h-full flex flex-col gap-5">
         <div className="bg-gradient-to-br from-navy to-slate-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-xl translate-x-4 -translate-y-4"></div>
           <div className="flex items-center gap-2 mb-4">
@@ -126,7 +132,7 @@ export default function CivicBot() {
       </div>
 
       {/* Main Chat Conversation Engine */}
-      <div className="lg:w-2/3 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+      <div className="lg:w-2/3 h-[500px] lg:h-full bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
         {/* Chat Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -137,7 +143,7 @@ export default function CivicBot() {
         </div>
 
         {/* Message Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div ref={messageContainerRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {messages.map((m, index) => (
             <div
               key={index}
@@ -154,7 +160,26 @@ export default function CivicBot() {
                   ? 'bg-navy/5 text-slate-800 rounded-tr-none'
                   : 'bg-slate-50 text-slate-800 border border-slate-100 rounded-tl-none font-medium'
               }`}>
-                <div className="whitespace-pre-wrap">{m.text}</div>
+                {m.role === 'user' ? (
+                  <div className="whitespace-pre-wrap">{m.text}</div>
+                ) : (
+                  <div className="markdown-body">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                        strong: ({ children }) => <strong className="font-bold text-navy">{children}</strong>,
+                        h1: ({ children }) => <h1 className="text-sm font-extrabold text-navy mt-3 mb-1">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-xs font-bold text-navy mt-2 mb-1">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-xs font-semibold text-slate-800 mt-2 mb-1">{children}</h3>,
+                      }}
+                    >
+                      {m.text}
+                    </ReactMarkdown>
+                  </div>
+                )}
                 <div className="text-[9px] text-slate-400 mt-1.5 text-right font-mono">{m.timestamp}</div>
               </div>
             </div>
@@ -175,7 +200,6 @@ export default function CivicBot() {
               </div>
             </div>
           )}
-          <div ref={scrollRef} />
         </div>
 
         {/* Input Form */}

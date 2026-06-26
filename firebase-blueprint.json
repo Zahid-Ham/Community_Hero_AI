@@ -59,7 +59,18 @@
         "status": { "type": "string" },
         "userId": { "type": "string" },
         "userEmail": { "type": "string" },
-        "userName": { "type": "string" }
+        "userName": { "type": "string" },
+        "agentContext": { "type": "object", "description": "The final integrated AgentContext state" }
+      }
+    },
+    "agentExecutions": {
+      "properties": {
+        "reportId": { "type": "string", "description": "Unified workflow or report reference ID" },
+        "timestamp": { "type": "string", "description": "Execution event timestamp" },
+        "agentName": { "type": "string", "description": "Name of the agent" },
+        "status": { "type": "string", "description": "Execution status: Pending, Running, Completed, Failed" },
+        "executionTime": { "type": "number", "description": "Total agent processing duration in ms" },
+        "outputSummary": { "type": "string", "description": "Concise summary of agent shared-state output or error messages" }
       }
     },
     "notifications": {
@@ -71,6 +82,17 @@
         "type": { "type": "string", "description": "Notification level / type" },
         "read": { "type": "boolean" },
         "createdAt": { "type": "string" }
+      }
+    },
+    "analytics": {
+      "properties": {
+        "wardName": { "type": "string" },
+        "city": { "type": "string" },
+        "wardRiskIndex": { "type": "number" },
+        "hotspotScore": { "type": "number" },
+        "densityCluster": { "type": "string" },
+        "reportsCount": { "type": "number" },
+        "lastUpdated": { "type": "string" }
       }
     }
   },

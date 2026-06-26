@@ -14,5 +14,14 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, write: if true;
     }
+    match /analytics/{analyticsId} {
+      allow read, write: if true;
+    }
+    match /agentExecutions/{executionId} {
+      allow read, write: if true;
+    }
+    match /agentWorkflows/{workflowId} {
+      allow read, write: if true;
+    }
   }
 }
